@@ -1,30 +1,138 @@
 @page "/chat"
+@inject IJSRuntime JSRuntime
+@inject ILogger<Chat> Logger
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Web
+<script>
+    // wwwroot/js/preventEnter.js
+    window.preventEnterDefault = (textarea) => {
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+            }
+        });
+    };
+</script>
+<style>
+    .messageHistory {
+        list-style-type: none;
+        padding: 0;
+        // set height to fill the remaining space
+    }
 
-<PageTitle>Chat</PageTitle>
+    .message {
+        margin: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        max-width: 80%;
+    }
 
-<h1>Chat</h1>
+    .user {
+        background-color: #f0f0f0;
+        // align to the right
+        
+    }
 
-<div>
-    <label>
-        Request
-        <input type="text" class="form-control" @bind="request" />
-    </label>
+    .assistant {
+        background-color: #f0f0f0;
+        // align to the left
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="messageHistory">
+    <ul>
+    @foreach (var message in history)
+    {
+        <li class="@message.Role message">
+            <strong>@message.Role</strong>: @message.Content
+        </li>
+    }
+    </ul>
 </div>
-<div>
-    <label>
-        Response:
-        <p>@response</p>
-    </label>
-</div>
+<EditForm EditContext="_editContext" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <AntiforgeryToken />
 
-<button class="btn btn-primary" @onclick="Send">Send</button>
+    <div class="form-group">
+        <textarea
+            @bind="@_model.Text"
+            @bind:event="oninput"
+            @onkeydown="HandleTextAreaKeyDown"
+            @ref="_textareaRef"
+            class="form-control" />
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Submit</button>
+</EditForm>
 
 @code {
-    private string? request = "", response = "THIS IS THE INITIAL VALUE.";
+    private List<Message> history = [];
+    private ElementReference? _textareaRef;
+    private Model _model = new();
+    private EditContext? _editContext;
 
-    private void Send()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        request = null;
-        response = "THIS IS THE NEW RESPONSE.";
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("preventEnterDefault", _textareaRef!);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _editContext = new(_model);
+        base.OnInitialized();
+    }
+
+    private async Task HandleTextAreaKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            // Validate without submitting
+            var isValid = _editContext!.Validate();
+
+            // Only prevent default if valid (allows normal Enter behavior when invalid)
+            if (isValid)
+            {
+                await Submit();
+            }
+        }
+    }
+
+    private Task Submit()
+    {
+        var modelText = _model.Text;
+        Logger.LogInformation("User input: {Input}", modelText);
+        if (!string.IsNullOrWhiteSpace(modelText))
+        {
+            history.Add(new("user", modelText));
+            _model.Text = "";
+        }
+        var response = $@"THIS IS THE NEW RESPONSE.";
+        history.Add(new("assistsant", response));
+        return Task.CompletedTask;
+    }
+
+    public class Model
+    {
+        [Required(ErrorMessage = "Text is required")]
+        [StringLength(500, ErrorMessage = "Text must be less than 500 characters")]
+        public string? Text { get; set; }
+    }
+    
+    public class Message(
+        string role,
+        string content)
+    {
+        [Required]
+        public string Role { get; set; } = role;
+        [Required]
+        public string Content { get; set; } = content;
     }
 }
