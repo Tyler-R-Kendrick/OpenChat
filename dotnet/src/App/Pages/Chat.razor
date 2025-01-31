@@ -3,72 +3,118 @@
 @inject ILogger<Chat> Logger
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Web
+
 <script>
     // wwwroot/js/preventEnter.js
     window.preventEnterDefault = (textarea) => {
         textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            var isEnterKey = e.key === 'Enter' || e.key === 'NumpadEnter';
+            var hasAdditionalKey = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey;
+            if (isEnterKey && !hasAdditionalKey) {
                 e.preventDefault();
             }
         });
     };
 </script>
+
 <style>
-    .messageHistory {
-        list-style-type: none;
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        margin: 0;
         padding: 0;
-        // set height to fill the remaining space
     }
 
-    .message {
-        margin: 0.5rem;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        max-width: 80%;
+    .messageHistory {
+        display: flex;
+        flex: 1;
+        overflow-y: auto;
     }
-
-    .user {
-        background-color: #f0f0f0;
-        // align to the right
-        
-    }
-
-    .assistant {
-        background-color: #f0f0f0;
-        // align to the left
+    
+    .form-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #fff;
+        padding: 1rem;
     }
 
     .form-group {
         margin-bottom: 1rem;
     }
 </style>
-
-<div class="messageHistory">
-    <ul>
-    @foreach (var message in history)
-    {
-        <li class="@message.Role message">
-            <strong>@message.Role</strong>: @message.Content
-        </li>
+<style>
+    * {
+        box-sizing: content-box;
     }
-    </ul>
-</div>
-<EditForm EditContext="_editContext" OnValidSubmit="Submit">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <AntiforgeryToken />
+    li {
+        display: inline-block;
+        width: 100vh;
+        height: auto;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
 
-    <div class="form-group">
+    .user {
+        text-align: right;
+        float: right;
+    }
+
+    .assistant {
+        text-align: left;
+        float: left;
+    }
+
+    .message {
+        display: block;
+        max-width: 60%;
+        margin: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+    }
+
+    .message.user {
+        background-color: #f0f0f0;
+    }
+
+    .message.assistant {
+        background-color: #e0e0e0;
+    }
+</style>
+<div class="chat-container">
+    <h1>Chat</h1>
+    <div class="messageHistory">
+        <ul>
+        @foreach (var message in history)
+        {
+            <li>
+                <span class="@message.Role message">
+                    <strong>@message.Role</strong>: <p>@message.Content</p>
+                </span>
+            </li>
+        }
+        </ul>
+    </div>
+
+    <EditForm
+        EditContext="_editContext"
+        OnValidSubmit="Submit"
+        class="form-container">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <AntiforgeryToken />
         <textarea
             @bind="@_model.Text"
             @bind:event="oninput"
             @onkeydown="HandleTextAreaKeyDown"
             @ref="_textareaRef"
             class="form-control" />
-    </div>
-
-    <button type="submit" class="btn btn-primary mt-3">Submit</button>
-</EditForm>
+        <button type="submit" class="btn btn-primary mt-3">Submit</button>
+    </EditForm>
+</div>
 
 @code {
     private List<Message> history = [];
@@ -115,7 +161,7 @@
             _model.Text = "";
         }
         var response = $@"THIS IS THE NEW RESPONSE.";
-        history.Add(new("assistsant", response));
+        history.Add(new("assistant", response));
         return Task.CompletedTask;
     }
 
