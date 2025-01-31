@@ -71,6 +71,7 @@
     .message {
         display: block;
         max-width: 60%;
+        min-width: 30%;
         margin: 0.5rem;
         padding: 0.5rem;
         border-radius: 0.5rem;
@@ -138,31 +139,47 @@
 
     private async Task HandleTextAreaKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
+        var isEnterKey = e.Key == "Enter" || e.Key == "NumpadEnter";
+        var hasAdditionalKey = e.ShiftKey || e.CtrlKey || e.AltKey || e.MetaKey;
+        if (isEnterKey && !hasAdditionalKey && _editContext!.Validate())
         {
-            // Validate without submitting
-            var isValid = _editContext!.Validate();
-
-            // Only prevent default if valid (allows normal Enter behavior when invalid)
-            if (isValid)
-            {
-                await Submit();
-            }
+            await Submit();
         }
     }
 
-    private Task Submit()
+    private async Task Submit()
     {
         var modelText = _model.Text;
+        RequestModel requestModel = new(modelText);
         Logger.LogInformation("User input: {Input}", modelText);
         if (!string.IsNullOrWhiteSpace(modelText))
         {
             history.Add(new("user", modelText));
             _model.Text = "";
         }
-        var response = $@"THIS IS THE NEW RESPONSE.";
-        history.Add(new("assistant", response));
-        return Task.CompletedTask;
+
+        var assistantResponse = "";
+        history.Add(new("assistant", assistantResponse));
+        await foreach (var message in GetAssistantResponse(requestModel))
+        {
+            assistantResponse += message.Content;
+            history[^1] = new("assistant", assistantResponse);
+        }
+    }
+
+    private Random random = new();
+    public record RequestModel(string? Input);
+    private async IAsyncEnumerable<Message> GetAssistantResponse(RequestModel requestModel)
+    {
+        var response = $"Responding to: {requestModel.Input}";
+        // chunk the response into every 3 characters
+        for (var i = 0; i < response.Length; i += 3)
+        {
+            var chunk = response.Substring(i, Math.Min(3, response.Length - i));
+            yield return new("assistant", chunk);
+            var delay = random.Next(100, 500);
+            await Task.Delay(delay);
+        }
     }
 
     public class Model
@@ -176,6 +193,8 @@
         string role,
         string content)
     {
+        public string Id = Guid.NewGuid().ToString();
+
         [Required]
         public string Role { get; set; } = role;
         [Required]
