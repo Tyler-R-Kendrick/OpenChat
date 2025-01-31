@@ -1,0 +1,40 @@
+* {
+    box-sizing: content-box;
+}
+
+.messageHistory {
+    display: flex;
+    overflow-y: auto;
+    border-radius: 1.5rem;
+    border: 1px solid #000;
+}
+
+li {
+    display: inline-block;
+    width: 100vh;
+    height: auto;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.user {
+    text-align: right;
+    float: right;
+    background-color: #f0f0f0;
+}
+
+.assistant {
+    text-align: left;
+    float: left;
+    background-color: #e0e0e0;
+}
+
+.message {
+    display: block;
+    max-width: 60%;
+    min-width: 30%;
+    margin: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}

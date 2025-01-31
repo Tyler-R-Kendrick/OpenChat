@@ -1,6 +1,6 @@
 {
-  "name": "MyBlazorPwa",
-  "short_name": "MyBlazorPwa",
+  "name": "OpenChat",
+  "short_name": "OpenChat",
   "id": "./",
   "start_url": "./",
   "display": "standalone",

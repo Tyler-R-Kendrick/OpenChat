@@ -6,48 +6,6 @@
 @using System.ComponentModel
 @using System.Runtime.CompilerServices
 
-<style>
-    .messageHistory {
-        display: flex;
-        flex: 1;
-        overflow-y: auto;
-    }
-
-    * {
-        box-sizing: content-box;
-    }
-
-    li {
-        display: inline-block;
-        width: 100vh;
-        height: auto;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
-    .user {
-        text-align: right;
-        float: right;
-        background-color: #f0f0f0;
-    }
-
-    .assistant {
-        text-align: left;
-        float: left;
-        background-color: #e0e0e0;
-    }
-
-    .message {
-        display: block;
-        max-width: 60%;
-        min-width: 30%;
-        margin: 0.5rem;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-    }
-</style>
-
 <div class="messageHistory">
     <ul>
         @foreach (var message in History)

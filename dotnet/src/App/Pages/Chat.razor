@@ -2,31 +2,21 @@
 @inject ILogger<Chat> Logger
 
 <style>
-    .chat-container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
+    html, body {
+        height: 100%;
         margin: 0;
         padding: 0;
     }
-    
-    .form-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: #fff;
-        padding: 1rem;
-    }
-
-    .form-group {
-        margin-bottom: 1rem;
+    .chat-container {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        margin: 0;
+        padding: 0;
     }
 </style>
 
 <div class="chat-container">
     <h1>Chat</h1>
-    
     <OpenChat.App.Components.ChatHistory.Component @ref="HistoryElement" />
     <OpenChat.App.Components.ChatInputBox.Component OnSubmit="HandleSubmit" />
 </div>

@@ -5,47 +5,20 @@
 @using System.ComponentModel
 @using System.Runtime.CompilerServices
 
-<script>
-    window.preventEnterDefault = (textarea) => {
-    textarea.addEventListener('keydown', (e) => {
-    var isEnterKey = e.key === 'Enter' || e.key === 'NumpadEnter';
-    var hasAdditionalKey = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey;
-    if (isEnterKey && !hasAdditionalKey) {
-    e.preventDefault();
-    }
-    });
-    };
-</script>
-
-<style>    
-    .form-container {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: #fff;
-    padding: 1rem;
-    }
-
-    .form-group {
-    margin-bottom: 1rem;
-    }
-</style>
-
 <EditForm
-EditContext="_editContext"
-OnValidSubmit="@Submit"
-class="form-container">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <AntiforgeryToken />
-    <textarea
-    @bind="@_model.Text"
-    @bind:event="oninput"
-    @onkeydown="HandleTextAreaKeyDown"
-    @ref="_textareaRef"
-    class="form-control" />
-    <button type="submit" class="btn btn-primary mt-3">Submit</button>
+    EditContext="_editContext"
+    OnValidSubmit="@Submit"
+    class="form-container">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <AntiforgeryToken />
+        <textarea
+            @bind="@_model.Text"
+            @bind:event="oninput"
+            @onkeydown="HandleTextAreaKeyDown"
+            @ref="_textareaRef"
+            class="form-control" />
+        <button type="submit" class="btn btn-primary mt-3">Submit</button>
 </EditForm>
 
 @code {
