@@ -1,21 +1,5 @@
 @page "/chat"
-@inject IJSRuntime JSRuntime
 @inject ILogger<Chat> Logger
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Components.Web
-
-<script>
-    // wwwroot/js/preventEnter.js
-    window.preventEnterDefault = (textarea) => {
-        textarea.addEventListener('keydown', (e) => {
-            var isEnterKey = e.key === 'Enter' || e.key === 'NumpadEnter';
-            var hasAdditionalKey = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey;
-            if (isEnterKey && !hasAdditionalKey) {
-                e.preventDefault();
-            }
-        });
-    };
-</script>
 
 <style>
     .chat-container {
@@ -24,12 +8,6 @@
         height: 100vh;
         margin: 0;
         padding: 0;
-    }
-
-    .messageHistory {
-        display: flex;
-        flex: 1;
-        overflow-y: auto;
     }
     
     .form-container {
@@ -45,159 +23,50 @@
         margin-bottom: 1rem;
     }
 </style>
-<style>
-    * {
-        box-sizing: content-box;
-    }
-    li {
-        display: inline-block;
-        width: 100vh;
-        height: auto;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
 
-    .user {
-        text-align: right;
-        float: right;
-    }
-
-    .assistant {
-        text-align: left;
-        float: left;
-    }
-
-    .message {
-        display: block;
-        max-width: 60%;
-        min-width: 30%;
-        margin: 0.5rem;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-    }
-
-    .message.user {
-        background-color: #f0f0f0;
-    }
-
-    .message.assistant {
-        background-color: #e0e0e0;
-    }
-</style>
 <div class="chat-container">
     <h1>Chat</h1>
-    <div class="messageHistory">
-        <ul>
-        @foreach (var message in history)
-        {
-            <li>
-                <span class="@message.Role message">
-                    <strong>@message.Role</strong>: <p>@message.Content</p>
-                </span>
-            </li>
-        }
-        </ul>
-    </div>
-
-    <EditForm
-        EditContext="_editContext"
-        OnValidSubmit="Submit"
-        class="form-container">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-        <AntiforgeryToken />
-        <textarea
-            @bind="@_model.Text"
-            @bind:event="oninput"
-            @onkeydown="HandleTextAreaKeyDown"
-            @ref="_textareaRef"
-            class="form-control" />
-        <button type="submit" class="btn btn-primary mt-3">Submit</button>
-    </EditForm>
+    
+    <OpenChat.App.Components.ChatHistory.Component @ref="HistoryElement" />
+    <OpenChat.App.Components.ChatInputBox.Component OnSubmit="HandleSubmit" />
 </div>
 
 @code {
-    private List<Message> history = [];
-    private ElementReference? _textareaRef;
-    private Model _model = new();
-    private EditContext? _editContext;
+    private OpenChat.App.Components.ChatHistory.Component? HistoryElement;
+    public System.Collections.ObjectModel.ObservableCollection<OpenChat.App.Components.ChatHistory.Component.Message> History => HistoryElement!.History;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task HandleSubmit(OpenChat.App.Components.ChatInputBox.Component.Model model)
     {
-        if (firstRender)
-        {
-            await JSRuntime.InvokeVoidAsync("preventEnterDefault", _textareaRef!);
-        }
-    }
-
-    protected override void OnInitialized()
-    {
-        _editContext = new(_model);
-        base.OnInitialized();
-    }
-
-    private async Task HandleTextAreaKeyDown(KeyboardEventArgs e)
-    {
-        var isEnterKey = e.Key == "Enter" || e.Key == "NumpadEnter";
-        var hasAdditionalKey = e.ShiftKey || e.CtrlKey || e.AltKey || e.MetaKey;
-        if (isEnterKey && !hasAdditionalKey && _editContext!.Validate())
-        {
-            await Submit();
-        }
-    }
-
-    private async Task Submit()
-    {
-        var modelText = _model.Text;
-        RequestModel requestModel = new(modelText);
+        var modelText = model.Text!;
         Logger.LogInformation("User input: {Input}", modelText);
-        if (!string.IsNullOrWhiteSpace(modelText))
-        {
-            history.Add(new("user", modelText));
-            _model.Text = "";
-        }
+        HistoryElement?.Add("user", modelText);
+        RequestModel requestModel = new(modelText);
+        await HandleAssistantResponse(requestModel);
+    }
 
-        var assistantResponse = "";
-        history.Add(new("assistant", assistantResponse));
+    private async Task HandleAssistantResponse(RequestModel requestModel)
+    {
+        OpenChat.App.Components.ChatHistory.Component.Message response = new("assistant", "", Logger);
+        HistoryElement?.Add(response);
         await foreach (var message in GetAssistantResponse(requestModel))
         {
-            assistantResponse += message.Content;
-            history[^1] = new("assistant", assistantResponse);
+            response.Content += message.Content;
         }
+        Logger.LogInformation("Assistant response: {Response}", response);
     }
-
+    
     private Random random = new();
     public record RequestModel(string? Input);
-    private async IAsyncEnumerable<Message> GetAssistantResponse(RequestModel requestModel)
+    private async IAsyncEnumerable<OpenChat.App.Components.ChatHistory.Component.Message> GetAssistantResponse(RequestModel requestModel)
     {
         var response = $"Responding to: {requestModel.Input}";
         // chunk the response into every 3 characters
         for (var i = 0; i < response.Length; i += 3)
         {
             var chunk = response.Substring(i, Math.Min(3, response.Length - i));
-            yield return new("assistant", chunk);
+            yield return new("assistant", chunk, Logger);
             var delay = random.Next(100, 500);
             await Task.Delay(delay);
         }
-    }
-
-    public class Model
-    {
-        [Required(ErrorMessage = "Text is required")]
-        [StringLength(500, ErrorMessage = "Text must be less than 500 characters")]
-        public string? Text { get; set; }
-    }
-    
-    public class Message(
-        string role,
-        string content)
-    {
-        public string Id = Guid.NewGuid().ToString();
-
-        [Required]
-        public string Role { get; set; } = role;
-        [Required]
-        public string Content { get; set; } = content;
     }
 }

@@ -1,0 +1,141 @@
+@inject IJSRuntime JSRuntime
+@inject ILogger<Component> Logger
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Web
+@using System.ComponentModel
+@using System.Runtime.CompilerServices
+
+<script>
+    window.preventEnterDefault = (textarea) => {
+    textarea.addEventListener('keydown', (e) => {
+    var isEnterKey = e.key === 'Enter' || e.key === 'NumpadEnter';
+    var hasAdditionalKey = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey;
+    if (isEnterKey && !hasAdditionalKey) {
+    e.preventDefault();
+    }
+    });
+    };
+</script>
+
+<style>    
+    .form-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #fff;
+    padding: 1rem;
+    }
+
+    .form-group {
+    margin-bottom: 1rem;
+    }
+</style>
+
+<EditForm
+EditContext="_editContext"
+OnValidSubmit="@Submit"
+class="form-container">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <AntiforgeryToken />
+    <textarea
+    @bind="@_model.Text"
+    @bind:event="oninput"
+    @onkeydown="HandleTextAreaKeyDown"
+    @ref="_textareaRef"
+    class="form-control" />
+    <button type="submit" class="btn btn-primary mt-3">Submit</button>
+</EditForm>
+
+@code {
+    private ElementReference? _textareaRef;
+    private Model _model = new();
+    private EditContext? _editContext;
+
+    [Parameter]
+    public EventCallback<Model> OnSubmit { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("preventEnterDefault", _textareaRef!);
+        }
+    }
+
+    private void SetModel(Model model)
+    {
+        _model.PropertyChanged -= (sender, e) => _editContext!.NotifyFieldChanged(FieldIdentifier.Create(() => _model.Text));
+        _model.PropertyChanged -= (sender, e) => Logger.LogInformation("Internal Model changed: {Change}", e);
+        _model = model;
+        _editContext = new(_model);
+    }
+
+    private void CreateModel()
+    {
+        Model model = new();
+        model.PropertyChanged += (sender, e) => _editContext!.NotifyFieldChanged(FieldIdentifier.Create(() => model.Text));
+        model.PropertyChanged += (sender, e) => Logger.LogInformation("Internal Model changed: {Change}", e);
+        SetModel(model);
+    }
+
+    protected override void OnInitialized()
+    {
+        CreateModel();
+        base.OnInitialized();
+    }
+
+    private async Task HandleTextAreaKeyDown(KeyboardEventArgs e)
+    {
+        var isEnterKey = e.Key == "Enter" || e.Key == "NumpadEnter";
+        var hasAdditionalKey = e.ShiftKey || e.CtrlKey || e.AltKey || e.MetaKey;
+        if (isEnterKey && !hasAdditionalKey && _editContext!.Validate())
+        {
+            await Submit();
+            await Refocus();
+        }
+    }
+
+    private async Task Refocus()
+    {
+        if(_textareaRef != null)
+        {
+            var valueTask = _textareaRef?.FocusAsync();
+            if(valueTask != null)
+            {
+                await valueTask.Value;
+            }
+        }
+    }
+
+    // We don't want to expose this method to public consumers, but need it exposed to the EditForm for binding.
+    protected internal async Task Submit()
+    {
+        Logger.LogInformation("Invoked Submit");
+        var model = _model;
+        CreateModel();
+        await OnSubmit.InvokeAsync(model);
+    }
+
+    public class Model : INotifyPropertyChanged
+    {
+        private string? _text;
+        [Required(ErrorMessage = "Text is required")]
+        [StringLength(500, ErrorMessage = "Text must be less than 500 characters")]
+        public string? Text
+        {
+            get => _text;
+            set
+            {
+                _text = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+            => PropertyChanged?.Invoke(this, new(propertyName));
+    }
+}

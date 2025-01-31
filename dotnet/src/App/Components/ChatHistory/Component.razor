@@ -1,0 +1,134 @@
+@inject ILogger<Component> Logger
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Web
+@using OpenChat.App.Components.ChatInputBox
+@using System.Collections.ObjectModel
+@using System.ComponentModel
+@using System.Runtime.CompilerServices
+
+<style>
+    .messageHistory {
+        display: flex;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    * {
+        box-sizing: content-box;
+    }
+
+    li {
+        display: inline-block;
+        width: 100vh;
+        height: auto;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .user {
+        text-align: right;
+        float: right;
+        background-color: #f0f0f0;
+    }
+
+    .assistant {
+        text-align: left;
+        float: left;
+        background-color: #e0e0e0;
+    }
+
+    .message {
+        display: block;
+        max-width: 60%;
+        min-width: 30%;
+        margin: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+    }
+</style>
+
+<div class="messageHistory">
+    <ul>
+        @foreach (var message in History)
+        {
+            <li>
+                <span class="@message.Role message">
+                    <strong>@message.Role</strong>: <p>@message.Content</p>
+                </span>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter]
+    public System.Collections.ObjectModel.ObservableCollection<Message> History { get; set; } = [];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        History.CollectionChanged += (sender, e) =>
+        {
+            var newMessages = e.NewItems?.Cast<Message>() ?? [];
+            foreach (var message in newMessages)
+            {
+                message.PropertyChanged += (sender, e) => StateHasChanged();
+            }
+            var oldMessages = e.OldItems?.Cast<Message>() ?? [];
+            foreach (var message in oldMessages)
+            {
+                message.PropertyChanged -= (sender, e) => StateHasChanged();
+            }
+        };
+        History.CollectionChanged += (sender, e) => StateHasChanged();
+        History.CollectionChanged += (sender, e) => Logger.LogInformation("Internal History changed: {Change}", e);
+    }
+
+    public void Add(Message message) => History.Add(message);
+    public void Add(string role, string content) => Add(new(role, content, Logger));
+
+    public class Message
+        : INotifyPropertyChanged
+    {
+        private readonly ILogger logger;
+        public string Id = Guid.NewGuid().ToString();
+
+        private string? _role;
+        [Required]
+        public string? Role
+        {
+            get => _role;
+            set
+            {
+                _role = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string? _content;
+        [Required]
+        public string? Content
+        {
+            get => _content;
+            set
+            {
+                _content = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Message(string role, string content, ILogger logger)
+        {
+            _role = role;
+            _content = content;
+            this.logger = logger;
+            PropertyChanged += (sender, e) => logger.LogInformation("Property changed: {Property}", e.PropertyName);
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void OnPropertyChanged([CallerMemberName]string? propertyName = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
